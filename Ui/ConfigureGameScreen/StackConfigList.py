@@ -1,6 +1,9 @@
-
 from textual.app import ComposeResult
-from textual.widgets import Static
+from textual.widgets import Static, Button
+from textual import on
+from textual.containers import Vertical, Container, ScrollableContainer
+
+from Ui.ConfigureGameScreen.StackConfig import StackConfig
 
 
 class StackConfigList(Static):
@@ -16,9 +19,39 @@ class StackConfigList(Static):
         height: 6;
         width: 100%;
     }
+    
+    #stacks_container {
+        width: 100%;
+        height: auto;
+        layout: vertical;
+        align: center middle;
+    }
+    
+    #add_stack_button {
+        width: 100%;
+        height: 3;
+        margin-bottom: 2;
+    }
     """
 
+    def __init__(self):
+        super().__init__()
+        self.stacks: list[StackConfig] = [StackConfig(1)]
+    
     def compose(self) -> ComposeResult:
-        # TODO: StackConfig for each stack
-        # TODO: Add stack button (at the bottom, dock right, same width as Remove Stack button in StackConfig)
-        yield Static(id="bottom_spacer")
+        yield self._make_stacks_container()
+            
+    def _make_stacks_container(self) -> ScrollableContainer:
+        return ScrollableContainer(
+            *[stack_config for stack_config in self.stacks],
+            Button("Add Stack", id="add_stack_button"),
+            Static(id="bottom_spacer"),
+            id="stacks_container"
+        )
+    
+    @on(Button.Pressed, "#add_stack_button")
+    async def add_stack(self) -> None:
+        stack_config = StackConfig(1)
+        self.stacks.append(stack_config)
+        await self.query_one("#stacks_container").remove()
+        self.mount(self._make_stacks_container())
