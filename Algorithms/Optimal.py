@@ -12,6 +12,10 @@ class Optimal(AlgorithmBase):
     def _uses_depth(self) -> bool:
         return False
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "Optimal"
+    
     @staticmethod
     def optimal_nim_move(state: list[int]) -> Move:
         """
