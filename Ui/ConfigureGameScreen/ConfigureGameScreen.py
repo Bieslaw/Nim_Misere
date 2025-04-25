@@ -10,6 +10,7 @@ from Algorithms.Mcts import MctsAlgorithm
 from Algorithms.AlphaBeta import AlphaBetaAlgorithm
 from Algorithms.Optimal import Optimal
 
+from NimMisere import NimMisere
 from Ui.RunGameScreen.RunGameScreen import RunGameScreen
 
 class ConfigureGameScreen(Screen):
@@ -95,4 +96,32 @@ class ConfigureGameScreen(Screen):
         
     @on(Button.Pressed, "#start_button")
     def start_game(self, event: Button.Pressed) -> None:
-        self.app.push_screen(RunGameScreen())
+        if not self.stack_sizes_input.value.strip():
+            self.app.notify("Stack sizes cannot be empty", severity="error")
+            return
+            
+        try:
+            stack_sizes = [int(size.strip()) for size in self.stack_sizes_input.value.split(",") if size.strip()]
+            
+            if not stack_sizes:
+                self.app.notify("No valid stack sizes provided", severity="error")
+                return
+                
+            if any(size <= 0 for size in stack_sizes):
+                self.app.notify("All stack sizes must be positive integers", severity="error")
+                return
+                
+        except ValueError:
+            self.app.notify("Invalid stack sizes. Please enter comma-separated integers", severity="error")
+            return
+        
+        if self.select_1.value == Select.BLANK:
+            self.app.notify("First algorithm is not chosen", severity="error")
+            return
+        
+        if self.select_2.value == Select.BLANK:
+            self.app.notify("Second algorithm is not chosen", severity="error")
+            return
+        
+        game = NimMisere(stack_sizes, self.select_1.value(), self.select_2.value())
+        self.app.push_screen(RunGameScreen(game))
