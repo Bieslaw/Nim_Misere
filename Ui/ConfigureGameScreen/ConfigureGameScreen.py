@@ -69,13 +69,17 @@ class ConfigureGameScreen(Screen):
             (Random.get_name(), Random),
             (MctsAlgorithm.get_name(), MctsAlgorithm),
             (AlphaBetaAlgorithm.get_name(), AlphaBetaAlgorithm),
-            (Optimal.get_name(), Optimal)], classes="algorithm_select")
+            (Optimal.get_name(), Optimal)], 
+            classes="algorithm_select", 
+            value=Optimal)
         self.select_2 = Select(options=[
             (Random.get_name(), Random),
             (MctsAlgorithm.get_name(), MctsAlgorithm),
             (AlphaBetaAlgorithm.get_name(), AlphaBetaAlgorithm),
-            (Optimal.get_name(), Optimal)], classes="algorithm_select")
-        self.stack_sizes_input = Input(placeholder="Stack size", id="stack_size_input")
+            (Optimal.get_name(), Optimal)], 
+            classes="algorithm_select", 
+            value=Random)
+        self.stack_sizes_input = Input(value="1,2,3,4", placeholder="Stack size", id="stack_size_input")
     
     def compose(self) -> ComposeResult:
         yield Header()

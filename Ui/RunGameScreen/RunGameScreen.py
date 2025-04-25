@@ -6,6 +6,7 @@ from textual.containers import ScrollableContainer, Container
 from textual.validation import Number
 
 from NimMisere import NimMisere
+from Ui.RunGameScreen.GameOverModal import GameOverModal
 
 
 class RunGameScreen(Screen):
@@ -83,7 +84,7 @@ class RunGameScreen(Screen):
         self.previous_stacks = game.stacks.copy()
         self.stack_labels = [Label(f"Stack {i+1}: {size}", classes="stack_label") 
                              for i, size in enumerate(self.game.stacks)]
-        self.limit_input = Input(placeholder="Depth", id="limit_input", validators=Number(minimum=0.01))
+        self.limit_input = Input(value="1", placeholder="Depth", id="limit_input", validators=Number(minimum=0.01))
         self.change_limit_type_button = Button("Depth", id="limit_type_button", variant="primary")
         self.running_worker = None
     
@@ -153,7 +154,13 @@ class RunGameScreen(Screen):
                 
         self.previous_stacks = self.game.stacks.copy()
             
-        # TODO: Modal for game over
+        async def handle_game_over():
+            await self.app.push_screen_wait(GameOverModal(self.game))
+            self.dismiss() 
+            
+        if self.game.get_result() is not None:
+            self.app.call_from_thread(handle_game_over)
+            return
         
         def do_ui_stuff():
             self.query_one("#next_move_button").disabled = self.game.get_result() is not None
