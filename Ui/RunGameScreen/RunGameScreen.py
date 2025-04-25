@@ -32,6 +32,16 @@ class RunGameScreen(Screen):
         background: green;
     }
     
+    #whose_turn_label {
+        height: 3;
+        width: 100%;
+        content-align: center middle;
+        margin: 1;
+        border: solid gray;
+        dock: bottom;
+        offset-y: -8;
+    }
+    
     #params_container {
         layout: horizontal;
         width: 100%;
@@ -75,10 +85,16 @@ class RunGameScreen(Screen):
                              for i, size in enumerate(self.game.stacks)]
         self.limit_input = Input(placeholder="Depth", id="limit_input", validators=Number(minimum=0.01))
         self.change_limit_type_button = Button("Depth", id="limit_type_button", variant="primary")
+        self.running_worker = None
+    
+    def _get_whose_turn_label_text(self) -> str:
+        algorithm_name = self.game.first_player.get_name() if self.game.first_player_turn else self.game.second_player.get_name()
+        return f"Next move: {'Player 1' if self.game.first_player_turn else 'Player 2'} ({algorithm_name})"
     
     def compose(self) -> ComposeResult:
         yield Header()
         yield ScrollableContainer(*self.stack_labels, id="stacks_container")
+        yield Label(self._get_whose_turn_label_text(), id="whose_turn_label")
         yield Container(
             self.change_limit_type_button,
             self.limit_input,
@@ -92,18 +108,23 @@ class RunGameScreen(Screen):
         yield Footer()
         
     def _advance_game(self) -> None:
-        if not self.limit_input.is_valid:
-            if self.limit_input.placeholder == "Depth":
+        if not self.limit_input.validate(self.limit_input.value).is_valid:
+            if self.change_limit_type_button.label == "Depth":
                 self.app.notify("Depth must be a positive integer", severity="error")
+                return
             else:
                 self.app.notify("Time limit must be a positive real number", severity="error")
-            return
+                return
         
         self.query_one("#next_move_button").disabled = True
-        self._run_game_step_and_update_ui()
+        self.running_worker = self._run_game_step_and_update_ui()
         
     @on(Button.Pressed, "#exit_button")
     def exit(self, event: Button.Pressed) -> None:
+        if self.running_worker is not None:
+            self.running_worker.cancel()
+            self.running_worker = None
+
         self.dismiss()
         
     @on(Button.Pressed, "#next_move_button")
@@ -112,13 +133,13 @@ class RunGameScreen(Screen):
         
     @on(Button.Pressed, "#limit_type_button")
     def toggle_limit_type(self, event: Button.Pressed) -> None:
-        self.limit_input.placeholder = "Depth" if self.limit_input.placeholder == "Time Limit" else "Time Limit"
-        self.change_limit_type_button.label = "Depth" if self.limit_input.placeholder == "Depth" else "Time Limit"
+        self.limit_input.placeholder = "Depth" if self.change_limit_type_button.label == "Depth" else "Time Limit"
+        self.change_limit_type_button.label = "Depth" if self.change_limit_type_button.label == "Time Limit" else "Time Limit"
         self.limit_input.value = "" 
 
     @work(thread=True, exclusive=True)
     def _run_game_step_and_update_ui(self) -> None:
-        if self.limit_input.placeholder == "Depth":
+        if self.change_limit_type_button.label == "Depth":
             self.game.step(int(float(self.limit_input.value)))
         else:
             self.game.step_timed(float(self.limit_input.value))
@@ -134,7 +155,9 @@ class RunGameScreen(Screen):
             
         # TODO: Modal for game over
         
-        def enable_next_move_button():
+        def do_ui_stuff():
             self.query_one("#next_move_button").disabled = self.game.get_result() is not None
+            self.query_one("#whose_turn_label").update(self._get_whose_turn_label_text())
         
-        self.app.call_from_thread(enable_next_move_button)
+        self.app.call_from_thread(do_ui_stuff)
+        self.running_worker = None

@@ -12,6 +12,10 @@ class AlphaBetaAlgorithm(AlgorithmBase):
     
     def _uses_depth(self) -> bool:
         return True
+    
+    @classmethod
+    def get_name(cls) -> str:
+        return "AlphaBeta"
 
     def alphabeta_move(self, stacks: list[int], depth: int) -> Move:
         best_value = -math.inf

@@ -62,7 +62,11 @@ class MctsAlgorithm(AlgorithmBase):
     
     def _uses_depth(self) -> bool:
         return True
-        
+    
+    @classmethod
+    def get_name(cls) -> str:
+        return "MCTS"
+    
     def nim_misere_mcts(self, state: list[int], iterations: int) -> tuple[int, int]:
         root = Node(state)
         

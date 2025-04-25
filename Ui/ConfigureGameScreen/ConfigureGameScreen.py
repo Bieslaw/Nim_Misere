@@ -66,15 +66,15 @@ class ConfigureGameScreen(Screen):
     def __init__(self):
         super().__init__()
         self.select_1 = Select(options=[
-            ("Random", Random),
-            ("MCTS", MctsAlgorithm),
-            ("AlphaBeta", AlphaBetaAlgorithm),
-            ("Optimal", Optimal)], classes="algorithm_select")
+            (Random.get_name(), Random),
+            (MctsAlgorithm.get_name(), MctsAlgorithm),
+            (AlphaBetaAlgorithm.get_name(), AlphaBetaAlgorithm),
+            (Optimal.get_name(), Optimal)], classes="algorithm_select")
         self.select_2 = Select(options=[
-            ("Random", Random),
-            ("MCTS", MctsAlgorithm),
-            ("AlphaBeta", AlphaBetaAlgorithm),
-            ("Optimal", Optimal)], classes="algorithm_select")
+            (Random.get_name(), Random),
+            (MctsAlgorithm.get_name(), MctsAlgorithm),
+            (AlphaBetaAlgorithm.get_name(), AlphaBetaAlgorithm),
+            (Optimal.get_name(), Optimal)], classes="algorithm_select")
         self.stack_sizes_input = Input(placeholder="Stack size", id="stack_size_input")
     
     def compose(self) -> ComposeResult:
