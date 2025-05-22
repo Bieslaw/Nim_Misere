@@ -134,8 +134,8 @@ class RunGameScreen(Screen):
         
     @on(Button.Pressed, "#limit_type_button")
     def toggle_limit_type(self, event: Button.Pressed) -> None:
-        self.limit_input.placeholder = "Depth" if self.change_limit_type_button.label == "Depth" else "Time Limit"
         self.change_limit_type_button.label = "Depth" if self.change_limit_type_button.label == "Time Limit" else "Time Limit"
+        self.limit_input.placeholder = "Depth" if self.change_limit_type_button.label == "Depth" else "Time Limit"
         self.limit_input.value = "" 
 
     @work(thread=True, exclusive=True)
