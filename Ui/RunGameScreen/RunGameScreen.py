@@ -53,7 +53,7 @@ class RunGameScreen(Screen):
     }
     
     #limit_input {
-        width: 3fr;
+        width: 4fr;
     }
     
     #limit_type_button {
@@ -75,7 +75,12 @@ class RunGameScreen(Screen):
     
     #next_move_button {
         height: 3;
-        width: 1fr;
+        width: 2fr;
+    }
+    
+    #previous_move_button {
+        height: 3;
+        width: 2fr;
     }
     """
     
@@ -104,6 +109,7 @@ class RunGameScreen(Screen):
         )
         yield Container(
             Button("Exit", id="exit_button", variant="error"),
+            Button("Previous", id="previous_move_button", variant="primary"),
             Button("Next Move", id="next_move_button", variant="primary"),
             id="button_container"
         )
@@ -119,6 +125,7 @@ class RunGameScreen(Screen):
                 return
         
         self.query_one("#next_move_button").disabled = True
+        self.query_one("#previous_move_button").disabled = True
         self.running_worker = self._run_game_step_and_update_ui()
         
     @on(Button.Pressed, "#exit_button")
@@ -132,6 +139,10 @@ class RunGameScreen(Screen):
     @on(Button.Pressed, "#next_move_button")
     def next_move(self, event: Button.Pressed) -> None:
         self._advance_game()
+        
+    @on(Button.Pressed, "#previous_move_button")
+    def previous_move(self, event: Button.Pressed) -> None:
+        self._step_back_and_update_ui()
         
     @on(Button.Pressed, "#limit_type_button")
     def toggle_limit_type(self, event: Button.Pressed) -> None:
@@ -166,7 +177,15 @@ class RunGameScreen(Screen):
         
         def do_ui_stuff():
             self.query_one("#next_move_button").disabled = self.history.game.get_result() is not None
+            self.query_one("#previous_move_button").disabled = self.history.game.get_result() is not None
             self.query_one("#whose_turn_label").update(self._get_whose_turn_label_text())
         
         self.app.call_from_thread(do_ui_stuff)
         self.running_worker = None
+        
+    def _step_back_and_update_ui(self) -> None:
+        self.history.step_back()
+        self.previous_stacks = self.history.get_stacks()
+        for i, label in enumerate(self.stack_labels):
+            label.update(f"Stack {i+1}: {self.previous_stacks[i]}")
+            label.remove_class("last_updated")            
