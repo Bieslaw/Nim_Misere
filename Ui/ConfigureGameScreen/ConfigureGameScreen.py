@@ -10,7 +10,7 @@ from Algorithms.Mcts import MctsAlgorithm
 from Algorithms.AlphaBeta import AlphaBetaAlgorithm
 from Algorithms.Optimal import Optimal
 from Algorithms.Config.ConfigBase import ConfigBase
-from Algorithms.Config.MctsConfig import MctsConfig
+from Algorithms.Config.MctsConfig import MctsConfig, SelectionType
 
 from NimMisere import NimMisere
 from Ui.RunGameScreen.RunGameScreen import RunGameScreen
@@ -148,6 +148,17 @@ class ConfigureGameScreen(Screen):
         return Container(
             Label("MCTS Configuration", classes="config_label"),
             Checkbox("Use hash states", id=f"{config_id}_hash_states_input", classes="config_input"),
+            Label("Exploration constant", classes="config_label", id=f"{config_id}_param_label"),
+            Input(value="1.0", placeholder="Exploration constant", id=f"{config_id}_param_input", classes="config_input"),
+            Label("Selection type", classes="config_label"),
+            Select(options=[
+                (SelectionType.UCB1, SelectionType.UCB1),
+                (SelectionType.UCB_TUNED, SelectionType.UCB_TUNED),
+                (SelectionType.RAVE, SelectionType.RAVE)
+                ],
+                id=f"{config_id}_selection_type_input",
+                classes="config_input",
+                value=SelectionType.UCB1),
             classes="mcts_config_container",
             id=config_id,
         )
@@ -187,6 +198,9 @@ class ConfigureGameScreen(Screen):
         """Called when the screen is mounted"""
         self.update_config_visibility(self.select_1, self.gear_1, self.config_1)
         self.update_config_visibility(self.select_2, self.gear_2, self.config_2)
+        # Initialize parameter labels for both configs
+        self.update_parameter_display("config_1")
+        self.update_parameter_display("config_2")
     
     @on(Select.Changed)
     def on_select_changed(self, event: Select.Changed) -> None:
@@ -199,6 +213,33 @@ class ConfigureGameScreen(Screen):
             self.config_2_visible = False
             self.config_2.remove_class("visible")
             self.update_config_visibility(self.select_2, self.gear_2, self.config_2)
+        # Handle selection type changes within config containers
+        elif event.select.id and event.select.id.endswith("_selection_type_input"):
+            config_id = event.select.id.replace("_selection_type_input", "")
+            self.update_parameter_display(config_id)
+    
+    def update_parameter_display(self, config_id):
+        """Update parameter label and input based on selection type"""
+        try:
+            selection_type_select = self.query_one(f"#{config_id}_selection_type_input")
+            param_label = self.query_one(f"#{config_id}_param_label")
+            param_input = self.query_one(f"#{config_id}_param_input")
+            
+            if selection_type_select.value == SelectionType.RAVE:
+                param_label.update("Beta value")
+                param_input.placeholder = "Beta value"
+                # Update input value to a suitable default for beta if it's still the exploration constant default
+                if param_input.value == "1.0":
+                    param_input.value = "0.5"
+            else:
+                param_label.update("Exploration constant")
+                param_input.placeholder = "Exploration constant"
+                # Update input value to exploration constant default if it's still the beta default
+                if param_input.value == "0.5":
+                    param_input.value = "1.0"
+        except Exception:
+            # Silently handle case where widgets don't exist yet
+            pass
     
     @on(Button.Pressed, "#gear_1")
     def toggle_config_1(self, event: Button.Pressed) -> None:
@@ -270,7 +311,16 @@ class ConfigureGameScreen(Screen):
         if type(player) == MctsAlgorithm:
             try:
                 hash_states = config_container.query_one(f"#{config_id}_hash_states_input").value
-                return MctsConfig(hash_states)
+                param_value = float(config_container.query_one(f"#{config_id}_param_input").value)
+                selection_type = config_container.query_one(f"#{config_id}_selection_type_input").value
+                if selection_type not in SelectionType:
+                    raise ValueError("Invalid selection type")
+                
+                # Pass the parameter value as either exploration_constant or beta depending on selection type
+                if selection_type == SelectionType.RAVE:
+                    return MctsConfig(hash_states, selection_type=selection_type, beta=param_value)
+                else:
+                    return MctsConfig(hash_states, exploration_constant=param_value, selection_type=selection_type)
             except (ValueError, TypeError):
                 # Use default values if parsing fails
                 return MctsConfig()

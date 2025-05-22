@@ -1,7 +1,7 @@
 import math
 import random
 from Algorithms.AlgorithmBase import AlgorithmBase, Move
-from Algorithms.Config.MctsConfig import MctsConfig
+from Algorithms.Config.MctsConfig import MctsConfig, SelectionType
 
 class Node:
     def __init__(self, state: list[int], hash_states: bool, parent=None, action: tuple[int, int] | None = None):
@@ -65,6 +65,36 @@ class Node:
         
         # Exploration component
         exploration = exploration_weight * math.sqrt(math.log(self.parent.visits) / self.visits)
+        
+        return exploitation + exploration
+    
+    def rave_score(self, beta_const: float = 300.0) -> float:
+        """RAVE-enhanced UCB score"""
+        if self.visits == 0:
+            return float('inf')
+
+        q = self.wins / self.visits  # standard value
+        rave_q = self.rave_wins / self.rave_visits if self.rave_visits > 0 else 0
+
+        beta = self.rave_visits / (self.visits + self.rave_visits + 1e-6)
+        score = (1 - beta) * q + beta * rave_q
+
+        exploration = math.sqrt(math.log(self.parent.visits) / self.visits)
+        return score + exploration
+    
+    def uct_tuned_score(self, exploration_weight: float = 1.0) -> float:
+        """UCT-Tuned with variance-aware exploration"""
+        if self.visits == 0:
+            return float('inf')
+        
+        exploitation = self.wins / self.visits
+        
+        # Calculate empirical variance
+        mean_sq = self.squared_wins / self.visits
+        mean = self.wins / self.visits
+        variance = mean_sq - mean**2 + 1e-4  # prevent negative values
+
+        exploration = exploration_weight * math.sqrt((math.log(self.parent.visits) / self.visits) * min(0.25, variance))
         
         return exploitation + exploration
     
@@ -145,10 +175,16 @@ class MctsAlgorithm(AlgorithmBase):
         """Select a node to expand using UCB"""
         current = node
         
+        selector = {
+            SelectionType.UCB1: lambda c: c.ucb_score(self.config.exploration_constant),
+            SelectionType.UCB_TUNED: lambda c: c.uct_tuned_score(self.config.exploration_constant),
+            SelectionType.RAVE: lambda c: c.rave_score(self.config.beta),
+        }
+
         # Navigate down the tree until we reach a leaf node or a node with untried actions
         while len(current.untried_actions) == 0 and len(current.children) > 0 and not current.is_terminal():
             # Select child with highest UCB score
-            current = max(current.children, key=lambda c: c.ucb_score())
+            current = max(current.children, key=selector[self.config.selection_type])
         
         # If we have untried actions, randomly select one and add a child
         if len(current.untried_actions) > 0 and not current.is_terminal():
