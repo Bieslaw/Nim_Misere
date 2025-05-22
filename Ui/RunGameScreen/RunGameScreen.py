@@ -6,6 +6,7 @@ from textual.containers import ScrollableContainer, Container
 from textual.validation import Number
 
 from NimMisere import NimMisere
+from GameHistory import GameHistory
 from Ui.RunGameScreen.GameOverModal import GameOverModal
 
 
@@ -80,17 +81,17 @@ class RunGameScreen(Screen):
     
     def __init__(self, game: NimMisere):
         super().__init__()
-        self.game = game
-        self.previous_stacks = game.stacks.copy()
+        self.history: GameHistory = GameHistory(game)
+        self.previous_stacks: list[int] = game.stacks.copy()
         self.stack_labels = [Label(f"Stack {i+1}: {size}", classes="stack_label") 
-                             for i, size in enumerate(self.game.stacks)]
+                             for i, size in enumerate(self.history.game.stacks)]
         self.limit_input = Input(value="1", placeholder="Depth", id="limit_input", validators=Number(minimum=0.01))
         self.change_limit_type_button = Button("Depth", id="limit_type_button", variant="primary")
         self.running_worker = None
     
     def _get_whose_turn_label_text(self) -> str:
-        algorithm_name = self.game.first_player.get_name() if self.game.first_player_turn else self.game.second_player.get_name()
-        return f"Next move: {'Player 1' if self.game.first_player_turn else 'Player 2'} ({algorithm_name})"
+        algorithm_name = self.history.game.get_current_player_name()
+        return f"Next move: Player {'1' if self.history.game.first_player_turn else '2'} ({algorithm_name})"
     
     def compose(self) -> ComposeResult:
         yield Header()
@@ -141,29 +142,30 @@ class RunGameScreen(Screen):
     @work(thread=True, exclusive=True)
     def _run_game_step_and_update_ui(self) -> None:
         if self.change_limit_type_button.label == "Depth":
-            self.game.step(int(float(self.limit_input.value)))
+            self.history.step(int(float(self.limit_input.value)))
         else:
-            self.game.step_timed(float(self.limit_input.value))
+            self.history.step_timed(float(self.limit_input.value))
         
+        current_stacks = self.history.get_stacks()
         for i, label in enumerate(self.stack_labels):
-            label.update(f"Stack {i+1}: {self.game.stacks[i]}")
-            if self.game.stacks[i] != self.previous_stacks[i]:
+            label.update(f"Stack {i+1}: {current_stacks[i]}")
+            if current_stacks[i] != self.previous_stacks[i]:
                 label.add_class("last_updated")
             else:
                 label.remove_class("last_updated")
                 
-        self.previous_stacks = self.game.stacks.copy()
+        self.previous_stacks = self.history.get_stacks()
             
         async def handle_game_over():
-            await self.app.push_screen_wait(GameOverModal(self.game))
+            await self.app.push_screen_wait(GameOverModal(self.history.game))
             self.dismiss() 
             
-        if self.game.get_result() is not None:
+        if self.history.game.get_result() is not None:
             self.app.call_from_thread(handle_game_over)
             return
         
         def do_ui_stuff():
-            self.query_one("#next_move_button").disabled = self.game.get_result() is not None
+            self.query_one("#next_move_button").disabled = self.history.game.get_result() is not None
             self.query_one("#whose_turn_label").update(self._get_whose_turn_label_text())
         
         self.app.call_from_thread(do_ui_stuff)

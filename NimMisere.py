@@ -1,4 +1,4 @@
-from Algorithms.AlgorithmBase import AlgorithmBase
+from Algorithms.AlgorithmBase import AlgorithmBase, Move
 
 
 class NimMisere:
@@ -23,7 +23,10 @@ class NimMisere:
         
         return self.first_player.get_name() if self.get_result() else self.second_player.get_name()
     
-    def step(self, depth: int) -> None:
+    def get_current_player_name(self) -> str:
+        return self.first_player.get_name() if self.first_player_turn else self.second_player.get_name()
+    
+    def step(self, depth: int) -> Move:
         if self.get_result() is not None:
             return
         
@@ -34,8 +37,10 @@ class NimMisere:
 
         self.stacks[move.stack_index] -= move.items_to_remove
         self.first_player_turn = not self.first_player_turn
+
+        return move
         
-    def step_timed(self, time_in_seconds: float) -> None:
+    def step_timed(self, time_in_seconds: float) -> Move:
         if self.get_result() is not None:
             return
         
@@ -46,3 +51,5 @@ class NimMisere:
 
         self.stacks[move.stack_index] -= move.items_to_remove
         self.first_player_turn = not self.first_player_turn
+
+        return move
