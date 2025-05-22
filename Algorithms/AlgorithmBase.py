@@ -2,6 +2,7 @@ import time
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from Algorithms.Config.ConfigBase import ConfigBase
 
 
 @dataclass
@@ -11,6 +12,16 @@ class Move:
 
 
 class AlgorithmBase(ABC):
+    @abstractmethod
+    def configure(self, config: ConfigBase):
+        """
+        Configure the algorithm with the given configuration.
+        
+        Args:
+            config: Configuration object for the algorithm
+        """
+        pass
+
     @abstractmethod
     def get_move(self, stacks: list[int], depth: int) -> Move:
         """
