@@ -14,8 +14,14 @@ class NimMisere:
         Returns True if the first player wins, False if the second player wins, and None if the game is still in progress.
         """
         if all(stack == 0 for stack in self.stacks):
-            return not self.first_player_turn
+            return self.first_player_turn
         return None
+    
+    def get_winner_name(self) -> str | None:
+        if self.get_result() is None:
+            return None
+        
+        return self.first_player.get_name() if self.get_result() else self.second_player.get_name()
     
     def step(self, depth: int) -> None:
         if self.get_result() is not None:
