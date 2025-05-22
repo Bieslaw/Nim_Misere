@@ -1,4 +1,4 @@
-from Algorithms.AlgorithmBase import AlgorithmBase
+from Algorithms.AlgorithmBase import AlgorithmBase, Move
 
 
 class NimMisere:
@@ -14,10 +14,19 @@ class NimMisere:
         Returns True if the first player wins, False if the second player wins, and None if the game is still in progress.
         """
         if all(stack == 0 for stack in self.stacks):
-            return not self.first_player_turn
+            return self.first_player_turn
         return None
     
-    def step(self, depth: int) -> None:
+    def get_winner_name(self) -> str | None:
+        if self.get_result() is None:
+            return None
+        
+        return self.first_player.get_name() if self.get_result() else self.second_player.get_name()
+    
+    def get_current_player_name(self) -> str:
+        return self.first_player.get_name() if self.first_player_turn else self.second_player.get_name()
+    
+    def step(self, depth: int) -> Move:
         if self.get_result() is not None:
             return
         
@@ -28,8 +37,10 @@ class NimMisere:
 
         self.stacks[move.stack_index] -= move.items_to_remove
         self.first_player_turn = not self.first_player_turn
+
+        return move
         
-    def step_timed(self, time_in_seconds: float) -> None:
+    def step_timed(self, time_in_seconds: float) -> Move:
         if self.get_result() is not None:
             return
         
@@ -40,3 +51,5 @@ class NimMisere:
 
         self.stacks[move.stack_index] -= move.items_to_remove
         self.first_player_turn = not self.first_player_turn
+
+        return move

@@ -35,9 +35,9 @@ class GameOverModal(ModalScreen):
             raise ValueError("Game is not over")
 
     def compose(self) -> ComposeResult:
-        algorithm_name = self.game.first_player.get_name() if self.game.first_player_turn else self.game.second_player.get_name()
-        label_text = f"{'Player 1' if self.game.get_result() == 1 else 'Player 2'} ({algorithm_name}) wins!"
-        yield Label(label_text, id="game_over_label")
+        yield Label(
+            f"Player {'1' if self.game.get_result() else '2'} ({self.game.get_winner_name()}) wins!", 
+            id="game_over_label")
         yield Button("Play again", id="play_again_button", variant="success")
 
     @on(Button.Pressed, "#play_again_button")
