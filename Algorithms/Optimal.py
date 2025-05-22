@@ -27,13 +27,20 @@ class Optimal(AlgorithmBase):
         Returns:
             Move object with stack index and items to take
         """
-        nim_sum = 0
-        for stack in state:
-            nim_sum ^= stack
-
         if all(s == 1 for s in state):
             # In endgame with only 1s, all moves are equivalent
             return Move(stack_index=0, items_to_remove=1)
+        
+        # If there is only one stack with more than 1 item, 
+        # we need to ensure that after the move we have an odd number of 1s
+        if sum(1 for s in state if s > 1) == 1:
+            max_stack_idx = state.index(max(state))
+            items_to_remove = state[max_stack_idx] - 1 if len(state) % 2 == 1 else state[max_stack_idx]
+            return Move(stack_index=max_stack_idx, items_to_remove=items_to_remove)
+
+        nim_sum = 0
+        for stack in state:
+            nim_sum ^= stack
         
         if nim_sum == 0:
             # If nim-sum is 0, we lose with optimal play - do whatever
