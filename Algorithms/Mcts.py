@@ -52,38 +52,53 @@ class Node:
 
 
 class MctsAlgorithm(AlgorithmBase):        
+    def __init__(self):
+        self.root: Node | None = None  # persistent root node
+
+
     def get_move(self, stacks: list[int], depth: int) -> Move:
-        """Implement the abstract method from AlgorithmBase"""
         non_zero_indices = [i for i, stack in enumerate(stacks) if stack > 0]
         non_zero_stacks = [stacks[i] for i in non_zero_indices]
         
         stack_idx, items = self.nim_misere_mcts(non_zero_stacks, depth)
         return Move(stack_index=non_zero_indices[stack_idx], items_to_remove=items)
-    
+
     def _uses_depth(self) -> bool:
         return True
-    
+
     @classmethod
     def get_name(cls) -> str:
         return "MCTS"
-    
+
     def nim_misere_mcts(self, state: list[int], iterations: int) -> tuple[int, int]:
-        root = Node(state)
-        
+        if self.root is None or self.root.state != state:
+            # Try to find the new root among existing children
+            if self.root:
+                matching_child = next((child for child in self.root.children if child.state == state), None)
+                if matching_child:
+                    matching_child.parent = None
+                    self.root = matching_child
+                else:
+                    self.root = Node(state)
+            else:
+                self.root = Node(state)
+
         for _ in range(iterations):
-            node = self.select_node(root)
+            node = self.select_node(self.root)
             winner = self.simulate_random_game(node.state)
             self.backpropagate(node, winner)
 
-        if not root.children:
-            # If no children (should not happen in a valid game), pick a random move
-            possible_actions = root.get_possible_actions()
-            if possible_actions:
-                return random.choice(possible_actions)
-            return (0, 1)  # Fallback
+        if not self.root.children:
+            possible_actions = self.root.get_possible_actions()
+            return random.choice(possible_actions) if possible_actions else (0, 1)
+
+        # Pick best move
+        best_child = max(self.root.children, key=lambda c: c.visits)
         
-        # Find child with highest win rate
-        best_child = max(root.children, key=lambda c: c.visits)
+        # Update root for next move
+        best_child.parent = None
+        self.root = best_child
+        
         return best_child.action
 
     def select_node(self, node: Node) -> Node:
@@ -147,3 +162,17 @@ class MctsAlgorithm(AlgorithmBase):
             # Switch players as we move up the tree
             player = 1 - player
             current = current.parent
+
+    def find_matching_node(self, node: Node, state: list[int]) -> Node | None:
+        """Search subtree rooted at `node` for a node matching `state`."""
+        if node.state == state:
+            return node
+        for child in node.children:
+            if child.state == state:
+                return child
+
+        for child in node.children:
+            result = self.find_matching_node(child, state)
+            if result:
+                return result
+        return None
