@@ -1,35 +1,56 @@
 import math
 import random
 from Algorithms.AlgorithmBase import AlgorithmBase, Move
-
+from Algorithms.Config.MctsConfig import MctsConfig
 
 class Node:
-    def __init__(self, state: list[int], parent=None, action: tuple[int, int] | None = None):
+    def __init__(self, state: list[int], hash_states: bool, parent=None, action: tuple[int, int] | None = None):
         self.state: list[int] = state
+        self.discriminator: tuple | list[int] = Node.make_discriminator(state, hash_states)
+        self.hash_states = hash_states
         self.parent = parent
-        self.action: tuple[int, int] | None = action
+        self.action: tuple[int, int] | None = action  # (stack_size_before, items_to_remove)
         self.children: list['Node'] = []
         self.visits: int = 0
         self.wins: int = 0
         self.untried_actions: list[tuple[int, int]] = self.get_possible_actions()
     
+    @classmethod
+    def make_discriminator(cls, state: list[int], hash_states: bool) -> tuple | list[int]:
+        """Create a discriminator for the node"""
+        if hash_states:
+            # Create canonical representation by sorting non-zero stacks
+            # This ensures [3, 1, 2] and [1, 2, 3] have the same discriminator
+            non_zero_stacks = [stack for stack in state if stack > 0]
+            return tuple(sorted(non_zero_stacks))
+        else:
+            # Keep original state for exact matching
+            return state.copy()
+
     def get_possible_actions(self) -> list[tuple[int, int]]:
-        """Return list of possible actions as (stack_index, items_to_remove)"""
+        """Return list of possible actions as (stack_size, items_to_remove)"""
         actions = []
-        for i, stack_size in enumerate(self.state):
+        # Get unique stack sizes (to avoid duplicate actions)
+        unique_stack_sizes = list(set(size for size in self.state if size > 0))
+        
+        for stack_size in unique_stack_sizes:
             for items in range(1, stack_size + 1):
-                actions.append((i, items))
+                actions.append((stack_size, items))
         return actions
     
     def add_child(self, action: tuple[int, int]) -> 'Node':
         """Add a child node with the given action"""
-        # Create new state by applying action
+        stack_size_before, items = action
+        
+        # Find first occurrence of this stack size and apply the action
         new_state = self.state.copy()
-        stack_idx, items = action
-        new_state[stack_idx] -= items
+        for i, size in enumerate(new_state):
+            if size == stack_size_before:
+                new_state[i] -= items
+                break
         
         # Create child node
-        child = Node(new_state, parent=self, action=action)
+        child = Node(new_state, self.hash_states, parent=self, action=action)
         self.untried_actions.remove(action)
         self.children.append(child)
         return child
@@ -54,14 +75,25 @@ class Node:
 class MctsAlgorithm(AlgorithmBase):        
     def __init__(self):
         self.root: Node | None = None  # persistent root node
+        self.config: MctsConfig | None = None  # configuration for the algorithm
 
+    def configure(self, config: MctsConfig):
+        self.config = config
 
     def get_move(self, stacks: list[int], depth: int) -> Move:
-        non_zero_indices = [i for i, stack in enumerate(stacks) if stack > 0]
-        non_zero_stacks = [stacks[i] for i in non_zero_indices]
+        # Filter out zero stacks for MCTS processing
+        non_zero_stacks = [stack for stack in stacks if stack > 0]
         
-        stack_idx, items = self.nim_misere_mcts(non_zero_stacks, depth)
-        return Move(stack_index=non_zero_indices[stack_idx], items_to_remove=items)
+        # Get action in terms of stack sizes
+        stack_size_before, items = self.nim_misere_mcts(non_zero_stacks, depth)
+        
+        # Convert back to original stack index
+        for i, stack in enumerate(stacks):
+            if stack == stack_size_before:
+                return Move(stack_index=i, items_to_remove=items)
+        
+        # Fallback (shouldn't happen)
+        return Move(stack_index=0, items_to_remove=1)
 
     def _uses_depth(self) -> bool:
         return True
@@ -71,17 +103,18 @@ class MctsAlgorithm(AlgorithmBase):
         return "MCTS"
 
     def nim_misere_mcts(self, state: list[int], iterations: int) -> tuple[int, int]:
-        if self.root is None or self.root.state != state:
+        discriminator = Node.make_discriminator(state, self.config.hash_states)
+        if self.root is None or self.root.discriminator != discriminator:
             # Try to find the new root among existing children
             if self.root:
-                matching_child = next((child for child in self.root.children if child.state == state), None)
-                if matching_child:
-                    matching_child.parent = None
-                    self.root = matching_child
+                matching_node = self.find_matching_node(self.root, discriminator)
+                if matching_node:
+                    matching_node.parent = None
+                    self.root = matching_node
                 else:
-                    self.root = Node(state)
+                    self.root = Node(state, self.config.hash_states)
             else:
-                self.root = Node(state)
+                self.root = Node(state, self.config.hash_states)
 
         for _ in range(iterations):
             node = self.select_node(self.root)
@@ -90,7 +123,14 @@ class MctsAlgorithm(AlgorithmBase):
 
         if not self.root.children:
             possible_actions = self.root.get_possible_actions()
-            return random.choice(possible_actions) if possible_actions else (0, 1)
+            if possible_actions:
+                return random.choice(possible_actions)
+            else:
+                # Fallback - find any non-zero stack
+                for stack_size in state:
+                    if stack_size > 0:
+                        return (stack_size, 1)
+                return (1, 1)
 
         # Pick best move
         best_child = max(self.root.children, key=lambda c: c.visits)
@@ -129,15 +169,22 @@ class MctsAlgorithm(AlgorithmBase):
         current_player = 0  # 0 for first player, 1 for second player
         
         while sum(state) > 0:
-            # Get all possible moves
+            # Get all possible moves (stack_size, items_to_remove)
             possible_moves = []
-            for i, stack_size in enumerate(state):
+            unique_stack_sizes = list(set(size for size in state if size > 0))
+            
+            for stack_size in unique_stack_sizes:
                 for items in range(1, stack_size + 1):
-                    possible_moves.append((i, items))
+                    possible_moves.append((stack_size, items))
                     
             # Make a random move
-            stack_idx, items = random.choice(possible_moves)
-            state[stack_idx] -= items
+            stack_size_before, items = random.choice(possible_moves)
+            
+            # Apply the move to the first stack of that size
+            for i, size in enumerate(state):
+                if size == stack_size_before:
+                    state[i] -= items
+                    break
             
             # Switch player
             current_player = 1 - current_player
@@ -163,16 +210,16 @@ class MctsAlgorithm(AlgorithmBase):
             player = 1 - player
             current = current.parent
 
-    def find_matching_node(self, node: Node, state: list[int]) -> Node | None:
-        """Search subtree rooted at `node` for a node matching `state`."""
-        if node.state == state:
+    def find_matching_node(self, node: Node, discriminator: tuple | list[int]) -> Node | None:
+        """Search subtree rooted at `node` for a node matching the discriminator."""
+        if node.discriminator == discriminator:
             return node
         for child in node.children:
-            if child.state == state:
+            if child.discriminator == discriminator:
                 return child
 
         for child in node.children:
-            result = self.find_matching_node(child, state)
+            result = self.find_matching_node(child, discriminator)
             if result:
                 return result
         return None

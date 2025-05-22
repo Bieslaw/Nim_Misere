@@ -1,14 +1,16 @@
 from textual import on
 from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.widgets import Button, Header, Footer, Input, Select, Label
-from textual.containers import Container
+from textual.widgets import Button, Header, Footer, Input, Select, Label, Checkbox
+from textual.containers import Container, Horizontal, Vertical
 
 from Algorithms.AlgorithmBase import AlgorithmBase
 from Algorithms.Random import Random
 from Algorithms.Mcts import MctsAlgorithm
 from Algorithms.AlphaBeta import AlphaBetaAlgorithm
 from Algorithms.Optimal import Optimal
+from Algorithms.Config.ConfigBase import ConfigBase
+from Algorithms.Config.MctsConfig import MctsConfig
 
 from NimMisere import NimMisere
 from Ui.RunGameScreen.RunGameScreen import RunGameScreen
@@ -40,9 +42,58 @@ class ConfigureGameScreen(Screen):
         content-align: center middle;
     }
     
-    .algorithm_select {
+    .algorithm_select_row {
         height: 3;
         width: 50%;
+        layout: horizontal;
+    }
+    
+    .algorithm_select {
+        height: 3;
+        width: 1fr;
+    }
+    
+    .config_gear {
+        width: 3;
+        height: 3;
+        min-width: 3;
+        content-align: center middle;
+        display: none;
+    }
+    
+    .config_gear.visible {
+        display: block;
+    }
+    
+    .mcts_config_container {
+        layout: vertical;
+        width: 50%;
+        height: auto;
+        margin: 1 0;
+        padding: 1;
+        border: solid $primary;
+        display: none;
+    }
+    
+    .mcts_config_container.visible {
+        display: block;
+    }
+    
+    .config_label {
+        height: 1;
+        content-align: center middle;
+        text-style: bold;
+    }
+    
+    .config_input {
+        height: 3;
+        margin: 1 0;
+    }
+    
+    #config_containers {
+        layout: horizontal;
+        width: 100%;
+        height: auto;
     }
     
     #stack_sizes_label {
@@ -79,8 +130,28 @@ class ConfigureGameScreen(Screen):
             (Optimal.get_name(), Optimal)], 
             classes="algorithm_select", 
             value=Random)
+        
+        self.gear_1 = Button("⚙", classes="config_gear", id="gear_1")
+        self.gear_2 = Button("⚙", classes="config_gear", id="gear_2")
+        
+        self.config_1 = self.get_config_widget("config_1")
+        self.config_2 = self.get_config_widget("config_2")
+        
+        self.config_1_visible = False
+        self.config_2_visible = False
+
         self.stack_sizes_input = Input(value="1,2,3,4", placeholder="Stack size", id="stack_size_input")
     
+    @staticmethod
+    def get_config_widget(config_id):
+        # For now, only MCTS has configuration options
+        return Container(
+            Label("MCTS Configuration", classes="config_label"),
+            Checkbox("Use hash states", id=f"{config_id}_hash_states_input", classes="config_input"),
+            classes="mcts_config_container",
+            id=config_id,
+        )
+
     def compose(self) -> ComposeResult:
         yield Header()
         yield Container(
@@ -89,14 +160,71 @@ class ConfigureGameScreen(Screen):
             id="algorithm_label_container")
         
         yield Container(
-            self.select_1, 
-            self.select_2, 
+            Horizontal(
+                self.select_1,
+                self.gear_1,
+                classes="algorithm_select_row"
+            ),
+            Horizontal(
+                self.select_2, 
+                self.gear_2,
+                classes="algorithm_select_row"
+            ),
             id="algorithm_select_container")
+        
+        yield Container(
+            self.config_1,
+            self.config_2,
+            id="config_containers"
+        )
         
         yield Label("Choose stack sizes (as comma separated values)", id="stack_sizes_label")
         yield self.stack_sizes_input
         yield Button("Start", id="start_button", variant="success")
         yield Footer()
+    
+    def on_mount(self) -> None:
+        """Called when the screen is mounted"""
+        self.update_config_visibility(self.select_1, self.gear_1, self.config_1)
+        self.update_config_visibility(self.select_2, self.gear_2, self.config_2)
+    
+    @on(Select.Changed)
+    def on_select_changed(self, event: Select.Changed) -> None:
+        """Handle select changes"""
+        if event.select == self.select_1:
+            self.config_1_visible = False
+            self.config_1.remove_class("visible")
+            self.update_config_visibility(self.select_1, self.gear_1, self.config_1)
+        elif event.select == self.select_2:
+            self.config_2_visible = False
+            self.config_2.remove_class("visible")
+            self.update_config_visibility(self.select_2, self.gear_2, self.config_2)
+    
+    @on(Button.Pressed, "#gear_1")
+    def toggle_config_1(self, event: Button.Pressed) -> None:
+        """Toggle configuration visibility for first algorithm"""
+        self.config_1_visible = not self.config_1_visible
+        if self.config_1_visible:
+            self.config_1.add_class("visible")
+        else:
+            self.config_1.remove_class("visible")
+    
+    @on(Button.Pressed, "#gear_2")
+    def toggle_config_2(self, event: Button.Pressed) -> None:
+        """Toggle configuration visibility for second algorithm"""
+        self.config_2_visible = not self.config_2_visible
+        if self.config_2_visible:
+            self.config_2.add_class("visible")
+        else:
+            self.config_2.remove_class("visible")
+
+    def update_config_visibility(self, select_widget, gear_button, config_container):
+        """Show/hide gear button based on selected algorithm"""
+        if select_widget.value == MctsAlgorithm:
+            gear_button.add_class("visible")
+        else:
+            gear_button.remove_class("visible")
+            config_container.remove_class("visible")
         
     @on(Button.Pressed, "#start_button")
     def start_game(self, event: Button.Pressed) -> None:
@@ -127,5 +255,24 @@ class ConfigureGameScreen(Screen):
             self.app.notify("Second algorithm is not chosen", severity="error")
             return
         
-        game = NimMisere(stack_sizes, self.select_1.value(), self.select_2.value())
+        player_1 = self.select_1.value()
+        player_2 = self.select_2.value()
+
+        config_1 = self.build_config(player_1, self.config_1, "config_1")
+        config_2 = self.build_config(player_2, self.config_2, "config_2")
+        player_1.configure(config_1)
+        player_2.configure(config_2)
+
+        game = NimMisere(stack_sizes, player_1, player_2)
         self.app.push_screen(RunGameScreen(game))
+
+    def build_config(self, player, config_container, config_id) -> ConfigBase:
+        if type(player) == MctsAlgorithm:
+            try:
+                hash_states = config_container.query_one(f"#{config_id}_hash_states_input").value
+                return MctsConfig(hash_states)
+            except (ValueError, TypeError):
+                # Use default values if parsing fails
+                return MctsConfig()
+        
+        return ConfigBase()
