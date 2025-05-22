@@ -57,13 +57,16 @@ class MctsAlgorithm(AlgorithmBase):
         non_zero_indices = [i for i, stack in enumerate(stacks) if stack > 0]
         non_zero_stacks = [stacks[i] for i in non_zero_indices]
         
-        iterations = self.base_iterations * depth if depth > 0 else self.base_iterations
-        stack_idx, items = self.nim_misere_mcts(non_zero_stacks, iterations)
+        stack_idx, items = self.nim_misere_mcts(non_zero_stacks, depth)
         return Move(stack_index=non_zero_indices[stack_idx], items_to_remove=items)
     
     def _uses_depth(self) -> bool:
         return True
-        
+    
+    @classmethod
+    def get_name(cls) -> str:
+        return "MCTS"
+    
     def nim_misere_mcts(self, state: list[int], iterations: int) -> tuple[int, int]:
         root = Node(state)
         

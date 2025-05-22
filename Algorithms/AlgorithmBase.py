@@ -22,6 +22,11 @@ class AlgorithmBase(ABC):
         """
         pass
     
+    @classmethod
+    @abstractmethod
+    def get_name(cls) -> str:
+        pass
+    
     @abstractmethod
     def _uses_depth(self) -> bool:
         pass
