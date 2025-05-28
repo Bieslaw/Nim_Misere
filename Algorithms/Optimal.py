@@ -1,4 +1,5 @@
 from Algorithms.AlgorithmBase import AlgorithmBase, Move
+from Algorithms.Config.ConfigBase import ConfigBase
 
 
 class Optimal(AlgorithmBase):
@@ -9,6 +10,9 @@ class Optimal(AlgorithmBase):
         move = self.optimal_nim_move(non_zero_stacks)
         return Move(stack_index=non_zero_indices[move.stack_index], items_to_remove=move.items_to_remove)
     
+    def configure(self, config: ConfigBase):
+        pass
+
     def _uses_depth(self) -> bool:
         return False
 

@@ -1,5 +1,6 @@
 import math
 from Algorithms.AlgorithmBase import AlgorithmBase, Move
+from Algorithms.Config.ConfigBase import ConfigBase
 
 
 class AlphaBetaAlgorithm(AlgorithmBase):        
@@ -10,6 +11,9 @@ class AlphaBetaAlgorithm(AlgorithmBase):
         chosen_move = self.alphabeta_move(non_zero_stacks, depth)
         return Move(stack_index=non_zero_indices[chosen_move.stack_index], items_to_remove=chosen_move.items_to_remove)
     
+    def configure(self, config: ConfigBase):
+        pass
+
     def _uses_depth(self) -> bool:
         return True
     
